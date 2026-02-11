@@ -357,12 +357,12 @@
           throw new Error('ไม่พบกล้อง');
         }
         
-        // Prefer back camera
-        const backCam = videoDevices.find(d => {
+        // Prefer front (selfie) camera when available
+        const frontCam = videoDevices.find(d => {
           const label = (d.label || '').toLowerCase();
-          return label.includes('back') || label.includes('rear') || label.includes('environment');
+          return label.includes('front') || label.includes('user') || label.includes('selfie');
         });
-        selectedDeviceId = backCam ? backCam.deviceId : videoDevices[0].deviceId;
+        selectedDeviceId = frontCam ? frontCam.deviceId : videoDevices[0].deviceId;
         
         return videoDevices;
       } catch (err) {
@@ -388,7 +388,7 @@
         const constraints = {
           video: selectedDeviceId 
             ? { deviceId: { exact: selectedDeviceId } }
-            : { facingMode: 'environment' }
+            : { facingMode: 'user' }
         };
         
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
