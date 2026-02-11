@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>สแกน QR เข้าห้อง - MomayBUU</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Kanit', 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container { max-width: 500px; width: 100%; }
+    
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { color: #fff; font-size: 24px; margin-bottom: 5px; }
+    .header p { color: #888; font-size: 14px; }
+    
+    .scanner-box {
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    
+    #videoContainer {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: #000;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+    
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    #canvas { display: none; }
+    
+    .scanner-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border: 3px solid #74640a;
+      border-radius: 15px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+    }
+    
+    .scanner-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: #74640a;
+      animation: scan 2s linear infinite;
+    }
+    
+    @keyframes scan {
+      0% { top: 0; }
+      50% { top: 100%; }
+      100% { top: 0; }
+    }
+    
+    .camera-select {
+      margin-top: 15px;
+    }
+    
+    .camera-select select {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    
+    .manual-input {
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .manual-input input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    
+    .btn {
+      padding: 12px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #74640a, #a08c14);
+      color: #fff;
+      width: 100%;
+    }
+    
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 15px;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff9800;
+    }
+    
+    .status-dot.active { background: #4caf50; animation: pulse 1.5s infinite; }
+    .status-dot.error { background: #f44336; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .error-box {
+      background: #fff3e0;
+      border: 1px solid #ff9800;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 15px;
+      text-align: center;
+    }
+    
+    .error-box p { color: #e65100; font-size: 14px; margin-bottom: 10px; }
+    
+    /* Result Modal */
+    .result-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .result-content {
+      background: #fff;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      animation: popIn 0.3s ease;
+    }
+    
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    .result-icon { font-size: 80px; margin-bottom: 20px; }
+    .result-title { font-size: 24px; margin-bottom: 10px; }
+    .result-title.success { color: #4caf50; }
+    .result-title.denied { color: #f44336; }
+    .result-title.warning { color: #ff9800; }
+    .result-message { color: #666; margin-bottom: 20px; }
+    
+    .booking-details {
+      background: #f5f5f5;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    
+    .booking-details p { margin: 5px 0; font-size: 14px; }
+    .booking-details strong { color: #333; }
+    
+    .btn-close { background: #333; color: #fff; }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      width: 50px; height: 50px;
+      border: 4px solid #ddd;
+      border-top-color: #74640a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Countdown Timer */
+    .countdown-box {
+      background: linear-gradient(135deg, #4caf50, #45a049);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #fff;
+    }
+    
+    .countdown-box.warning {
+      background: linear-gradient(135deg, #ff9800, #f57c00);
+    }
+    
+    .countdown-box.expired {
+      background: linear-gradient(135deg, #f44336, #d32f2f);
+    }
+    
+    .countdown-label {
+      font-size: 14px;
+      margin-bottom: 5px;
+      opacity: 0.9;
+    }
+    
+    .countdown-timer {
+      font-size: 48px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .countdown-status {
+      font-size: 12px;
+      margin-top: 5px;
+      opacity: 0.8;
+    }
+    
+    .checkin-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MomayBUU Room Access</h1>
+    </div>
+    
+    <div class="scanner-box">
+      <div id="videoContainer">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="scanner-overlay">
+          <div class="scanner-line"></div>
+        </div>
+      </div>
+      
+      <div id="errorBox" class="error-box" style="display:none;">
+        <p id="errorText">ไม่สามารถเปิดกล้องได้</p>
+        <button class="btn btn-primary" onclick="startCamera()">🔄 ลองใหม่</button>
+      </div>
+      
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>กำลังตรวจสอบ...</p>
+      </div>
+      
+      <div class="manual-input">
+        <input type="text" id="manualCode" placeholder="หรือกรอกรหัสการจอง (เช่น BKMLEZX1M1)">
+        <button class="btn btn-primary" onclick="verifyManual()">ตรวจสอบ</button>
+      </div>
+      
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">กำลังเปิดกล้อง...</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Result Modal -->
+  <div class="result-modal" id="resultModal">
+    <div class="result-content">
+      <div class="result-icon" id="resultIcon">✅</div>
+      <h2 class="result-title" id="resultTitle">เข้าห้องได้</h2>
+      <p class="result-message" id="resultMessage"></p>
+      
+      <!-- Countdown Timer -->
+      <div class="countdown-box" id="countdownBox" style="display:none;">
+        <div class="countdown-label">เวลาที่เหลือ</div>
+        <div class="countdown-timer" id="countdownTimer">00:00:00</div>
+        <div class="countdown-status" id="countdownStatus">กำลังใช้งานห้อง</div>
+        <div class="checkin-badge" id="checkinBadge">✓ Check-in แล้ว</div>
+      </div>
+      
+      <div class="booking-details" id="bookingDetails">
+        <p><strong>ห้อง:</strong> <span id="detailRoom">-</span></p>
+        <p><strong>วันที่:</strong> <span id="detailDate">-</span></p>
+        <p><strong>เวลา:</strong> <span id="detailTime">-</span></p>
+        <p><strong>ผู้จอง:</strong> <span id="detailBooker">-</span></p>
+        <p><strong>วัตถุประสงค์:</strong> <span id="detailPurpose">-</span></p>
+      </div>
+      
+      <button class="btn btn-close" onclick="closeResult()">ปิด</button>
+    </div>
+  </div>
+  
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const errorBox = document.getElementById('errorBox');
+    const errorText = document.getElementById('errorText');
+    
+    let currentStream = null;
+    let scanning = false;
+    let lastScannedCode = '';
+    let scanTimeout = null;
+    let countdownInterval = null;
+    let currentBooking = null;
+    
+    // Get available cameras
+    let selectedDeviceId = null;
+    async function getCameras() {
+      try {
+        // Request permission first
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(t => t.stop());
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        
+        if (videoDevices.length === 0) {
+          throw new Error('ไม่พบกล้อง');
+        }
+        
+        // Prefer back camera
+        const backCam = videoDevices.find(d => {
+          const label = (d.label || '').toLowerCase();
+          return label.includes('back') || label.includes('rear') || label.includes('environment');
+        });
+        selectedDeviceId = backCam ? backCam.deviceId : videoDevices[0].deviceId;
+        
+        return videoDevices;
+      } catch (err) {
+        console.error('Get cameras error:', err);
+        throw err;
+      }
+    }
+    
+    // Start camera
+    async function startCamera() {
+      errorBox.style.display = 'none';
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'กำลังเปิดกล้อง...';
+      
+      try {
+        // Stop existing stream
+        if (currentStream) {
+          currentStream.getTracks().forEach(t => t.stop());
+        }
+        
+        await getCameras();
+        
+        const constraints = {
+          video: selectedDeviceId 
+            ? { deviceId: { exact: selectedDeviceId } }
+            : { facingMode: 'environment' }
+        };
+        
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = currentStream;
+        
+        video.onloadedmetadata = function() {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          statusDot.className = 'status-dot active';
+          statusText.textContent = 'กล้องพร้อม - หันไปที่ QR Code';
+          
+          scanning = true;
+          scanQRCode();
+        };
+        
+      } catch (err) {
+        console.error('Camera error:', err);
+        statusDot.className = 'status-dot error';
+        
+        if (err.name === 'NotAllowedError') {
+          errorText.textContent = 'กรุณาอนุญาตการใช้กล้อง';
+          statusText.textContent = 'ไม่ได้รับอนุญาตใช้กล้อง';
+        } else if (err.name === 'NotFoundError') {
+          errorText.textContent = 'ไม่พบกล้องในอุปกรณ์';
+          statusText.textContent = 'ไม่พบกล้อง';
+        } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+          errorText.textContent = 'ต้องใช้ HTTPS เพื่อเข้าถึงกล้อง';
+          statusText.textContent = 'ต้องใช้ HTTPS';
+        } else {
+          errorText.textContent = err.message || 'ไม่สามารถเปิดกล้องได้';
+          statusText.textContent = 'กล้องไม่พร้อม';
+        }
+        
+        errorBox.style.display = 'block';
+      }
+    }
+    
+    // Switch camera
+    function switchCamera() {
+      if (scanning) {
+        scanning = false;
+        startCamera();
+      }
+    }
+    
+    // Scan QR Code from video
+    function scanQRCode() {
+      if (!scanning) return;
+      
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        
+        if (code && code.data) {
+          // Prevent duplicate scans
+          if (code.data !== lastScannedCode) {
+            lastScannedCode = code.data;
+            
+            // Clear previous timeout
+            if (scanTimeout) clearTimeout(scanTimeout);
+            
+            // Reset after 5 seconds
+            scanTimeout = setTimeout(function() {
+              lastScannedCode = '';
+            }, 5000);
+            
+            verifyQRCode(code.data);
+          }
+        }
+      }
+      
+      requestAnimationFrame(scanQRCode);
+    }
+    
+    // Verify QR Code with server
+    async function verifyQRCode(qrData) {
+      const loading = document.getElementById('loading');
+      loading.style.display = 'block';
+      
+      try {
+        const response = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ qrData: qrData })
+        });
+        
+        const result = await response.json();
+        loading.style.display = 'none';
+        showResult(result);
+        
+      } catch (error) {
+        loading.style.display = 'none';
+        showResult({
+          success: false,
+          access: false,
+          message: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+          reason: 'error'
+        });
+      }
+    }
+    
+    // Manual verification
+    function verifyManual() {
+      const code = document.getElementById('manualCode').value.trim();
+      if (!code) {
+        alert('กรุณากรอกรหัสการจอง');
+        return;
+      }
+      verifyQRCode(code);
+    }
+    
+    // Show result modal
+    function showResult(result) {
+      const modal = document.getElementById('resultModal');
+      const icon = document.getElementById('resultIcon');
+      const title = document.getElementById('resultTitle');
+      const message = document.getElementById('resultMessage');
+      const details = document.getElementById('bookingDetails');
+      const countdownBox = document.getElementById('countdownBox');
+      const checkinBadge = document.getElementById('checkinBadge');
+      
+      // Clear previous countdown
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      
+      title.className = 'result-title';
+      countdownBox.style.display = 'none';
+      
+      if (result.access) {
+        currentBooking = result;
+        icon.textContent = '✅';
+        
+        if (result.isFirstCheckIn) {
+          title.textContent = 'Check-in สำเร็จ!';
+          message.textContent = 'เริ่มจับเวลาการใช้ห้อง';
+          checkinBadge.textContent = '🎉 Check-in ครั้งแรก!';
+        } else {
+          title.textContent = 'Check-in';
+          message.textContent = 'ยินดีต้อนรับกลับมา!';
+          checkinBadge.textContent = '✓ Check-in แล้ว';
+        }
+        title.classList.add('success');
+        
+        // Show countdown timer
+        countdownBox.style.display = 'block';
+        startCountdown(result.remainingSeconds);
+        
+      } else if (result.reason === 'too_early') {
+        icon.textContent = '⏰';
+        title.textContent = 'ยังไม่ถึงเวลา';
+        title.classList.add('warning');
+        message.textContent = result.message || 'กรุณารอจนถึงเวลาที่จอง';
+      } else if (result.reason === 'too_late') {
+        icon.textContent = '⏰';
+        title.textContent = 'เลยเวลาแล้ว';
+        title.classList.add('denied');
+        message.textContent = result.message || 'เลยเวลาการจองแล้ว';
+      } else if (result.reason === 'expired') {
+        icon.textContent = '📅';
+        title.textContent = 'การจองหมดอายุ';
+        title.classList.add('denied');
+        message.textContent = result.message || 'การจองนี้หมดอายุแล้ว';
+      } else if (result.reason === 'not_today') {
+        icon.textContent = '📅';
+        title.textContent = 'ไม่ใช่วันนี้';
+        title.classList.add('warning');
+        message.textContent = result.message || 'การจองนี้ไม่ใช่สำหรับวันนี้';
+      } else if (result.reason === 'error') {
+        icon.textContent = '⚠️';
+        title.textContent = 'เกิดข้อผิดพลาด';
+        title.classList.add('denied');
+        message.textContent = result.message || 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
+      } else {
+        icon.textContent = '❌';
+        title.textContent = 'ไม่พบการจอง';
+        title.classList.add('denied');
+        message.textContent = result.message || result.error || 'ไม่พบข้อมูลการจองนี้';
+      }
+      
+      if (result.booking) {
+        details.style.display = 'block';
+        document.getElementById('detailRoom').textContent = result.booking.room;
+        document.getElementById('detailDate').textContent = result.booking.date;
+        document.getElementById('detailTime').textContent = result.booking.startTime + ' - ' + result.booking.endTime;
+        document.getElementById('detailBooker').textContent = result.booking.bookerName;
+        document.getElementById('detailPurpose').textContent = result.booking.purpose || '-';
+      } else {
+        details.style.display = 'none';
+      }
+      
+      modal.style.display = 'flex';
+    }
+    
+    // Start countdown timer
+    function startCountdown(seconds) {
+      const timerEl = document.getElementById('countdownTimer');
+      const countdownBox = document.getElementById('countdownBox');
+      const countdownStatus = document.getElementById('countdownStatus');
+      
+      let remaining = seconds;
+      
+      function updateTimer() {
+        const hours = Math.floor(remaining / 3600);
+        const mins = Math.floor((remaining % 3600) / 60);
+        const secs = remaining % 60;
+        
+        timerEl.textContent = 
+          String(hours).padStart(2, '0') + ':' + 
+          String(mins).padStart(2, '0') + ':' + 
+          String(secs).padStart(2, '0');
+        
+        // Update styling based on remaining time
+        countdownBox.className = 'countdown-box';
+        if (remaining <= 0) {
+          countdownBox.classList.add('expired');
+          countdownStatus.textContent = 'หมดเวลาแล้ว - Check-out';
+          clearInterval(countdownInterval);
+        } else if (remaining <= 300) { // 5 minutes warning
+          countdownBox.classList.add('warning');
+          countdownStatus.textContent = '⚠️ เหลือเวลาอีกไม่นาน!';
+        } else {
+          countdownStatus.textContent = 'กำลังใช้งานห้อง';
+        }
+        
+        remaining--;
+      }
+      
+      updateTimer();
+      countdownInterval = setInterval(updateTimer, 1000);
+    }
+    
+    // Close result modal
+    function closeResult() {
+      document.getElementById('resultModal').style.display = 'none';
+      document.getElementById('manualCode').value = '';
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      currentBooking = null;
+    }
+    
+    // Close modal on outside click
+    document.getElementById('resultModal').addEventListener('click', function(e) {
+      if (e.target.id === 'resultModal') closeResult();
+    });
+    
+    // Start on load
+    window.onload = startCamera;
+  </script>
+</body>
+</html>
