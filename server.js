@@ -58,7 +58,9 @@ function parseBody(req) {
 
 function isWithinBookingTime(booking) {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  // Convert to Bangkok timezone (UTC+7)
+  const bangkokNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  const today = bangkokNow.toISOString().split('T')[0];
   
   if (booking.date !== today) {
     const bookingDate = new Date(booking.date);
@@ -72,7 +74,7 @@ function isWithinBookingTime(booking) {
   const [startHour, startMin] = booking.startTime.split(':').map(Number);
   const [endHour, endMin] = booking.endTime.split(':').map(Number);
   
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = bangkokNow.getUTCHours() * 60 + bangkokNow.getUTCMinutes();
   const startMinutes = startHour * 60 + startMin;
   const endMinutes = endHour * 60 + endMin;
   
@@ -155,9 +157,10 @@ async function handleAPI(req, res) {
         );
       }
       
-      // คำนวณเวลาที่เหลือจนหมดเวลาจอง (timezone-safe)
+      // คำนวณเวลาที่เหลือจนหมดเวลาจอง (Bangkok timezone)
       const [endHour, endMin] = booking.endTime.split(':').map(Number);
-      const currentSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const bangkokCalc = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+      const currentSecs = bangkokCalc.getUTCHours() * 3600 + bangkokCalc.getUTCMinutes() * 60 + bangkokCalc.getUTCSeconds();
       const endSecs = endHour * 3600 + endMin * 60;
       const remainingSeconds = Math.max(0, endSecs - currentSecs);
       
