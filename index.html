@@ -467,13 +467,16 @@
       requestAnimationFrame(scanQRCode);
     }
     
+    // API base URL — call momaybuu Node.js server (has /api/verify endpoint)
+    const API_BASE = 'https://momaybuu-production.up.railway.app';
+
     // Verify QR Code with server
     async function verifyQRCode(qrData) {
       const loading = document.getElementById('loading');
       loading.style.display = 'block';
       
       try {
-        const response = await fetch('/api/verify', {
+        const response = await fetch(API_BASE + '/api/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ qrData: qrData })
